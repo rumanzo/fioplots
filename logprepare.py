@@ -3,13 +3,15 @@ import glob
 import argparse
 import sys
 import os
-import threading
+import multiprocessing
+from functools import partial
 from time import sleep
 
 
 class Logprepare(object):
     def __init__(self):
         self.seconds_in_ms = 1000
+
 
     def logprepare(self, src, dst):
         with open(src, 'r') as srcfile, open(dst, 'w') as dstfile:
@@ -29,7 +31,10 @@ class Logprepare(object):
                 dstfile.write(f'{self.seconds_in_ms * second}, {sum(valsum)}, {row[2]}, {row[3]}\n')
         return f'{src} processed'
 
-
+    def mplogprepare(self, destdir, src):
+        dstfile = os.path.join(destdir, os.path.basename(src))
+        result = self.logprepare(src, dstfile)
+        return result
 
 
 if __name__ == "__main__":
@@ -47,9 +52,7 @@ if __name__ == "__main__":
 
     logp = Logprepare()
 
-    for file in glob.glob(os.path.join(args.sourcedir, args.pattern)):
-        print(f'Processing {file} to {os.path.join(args.destdir, os.path.basename(file))}')
-        th = threading.Thread(target=logp.logprepare, args=(file, os.path.join(args.destdir, os.path.basename(file))))
-        th.start()
-    while threading.active_count() != 1:
-        sleep(1)
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        func = partial(logp.mplogprepare, args.destdir)
+        results = pool.map(func, [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))])
+    print(results)
