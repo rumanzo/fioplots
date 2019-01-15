@@ -5,7 +5,6 @@ import sys
 import os
 import multiprocessing
 from functools import partial
-from time import sleep
 
 
 class Logprepare(object):
