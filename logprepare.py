@@ -3,8 +3,8 @@ import glob
 import argparse
 import sys
 import os
-import asyncio
-import concurrent.futures
+import threading
+from time import sleep
 
 
 class Logprepare(object):
@@ -25,20 +25,11 @@ class Logprepare(object):
                     second += 1
                     valsum.clear()
                     valsum.append(int(row[1]))
-            dstfile.write(f'{self.seconds_in_ms * second}, {sum(valsum)}, {row[2]}, {row[3]}\n')
+            if second != 1:
+                dstfile.write(f'{self.seconds_in_ms * second}, {sum(valsum)}, {row[2]}, {row[3]}\n')
         return f'{src} processed'
 
 
-
-    async def asynclogprepare(self, executor, args):
-        loop = asyncio.get_event_loop()
-        blocking_tasks = [
-            loop.run_in_executor(executor, self.logprepare, log["src"], log["dst"])
-            for log in args
-        ]
-        completed, pending = await asyncio.wait(blocking_tasks)
-        results = [t.result() for t in completed]
-        print('results: {!r}'.format(results))
 
 
 if __name__ == "__main__":
@@ -55,14 +46,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     logp = Logprepare()
-    event_loop = asyncio.get_event_loop()
-    executor = concurrent.futures.ThreadPoolExecutor()
 
-    task_list = []
     for file in glob.glob(os.path.join(args.sourcedir, args.pattern)):
         print(f'Processing {file} to {os.path.join(args.destdir, os.path.basename(file))}')
-        task_list.append({"src": file, "dst": os.path.join(args.destdir, os.path.basename(file))})
-    try:
-         event_loop.run_until_complete(logp.asynclogprepare(executor, task_list))
-    finally:
-        event_loop.close()
+        th = threading.Thread(target=logp.logprepare, args=(file, os.path.join(args.destdir, os.path.basename(file))))
+        th.start()
+    while threading.active_count() != 1:
+        sleep(1)
