@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import glob
 import argparse
-import sys
+import re
 import os
 import multiprocessing
 import datetime
@@ -14,18 +14,27 @@ class LogPlot(object):
 
 
     def plot(self, src):
+        types = {'bw': 'Bandwith MiB/sec', 'lat': 'Latency in msecs', 'clat': ' Completion  latency in msecs',
+                'slat': 'Submission latency in msecs'}
+
+        for t in types.keys():
+            print(t)
+            if re.match(r'.*'+t+r'\.\d+\.log', os.path.basename(src)):
+                type = {"name": t, "title": types[t]}
         with open(src, 'r') as f:
             out = []
             for line in f:
                 linelist = line.rstrip('\n').split(', ')
-                out.append({'Time': datetime.timedelta(milliseconds=int(linelist[0])), 'bw': int(linelist[1])})
+                out.append({'Time': datetime.timedelta(milliseconds=int(linelist[0])), type.get("name"): int(linelist[1])})
         df = pd.DataFrame(out)
         df.Time = pd.to_datetime(df.Time).dt.time
-        # df.set_index('Time')
         df.set_index('Time', inplace=True)
-        df = df.apply(lambda x: x/1024, axis=1)
+        if type.get('name') == 'bw':
+            df = df.apply(lambda x: x/1024, axis=1)
+        if 'lat' in type.get('name'):
+            df = df.apply(lambda x: x/1000000, axis=1)
         pplot = df.plot()
-        pplot.set(xlabel="Time", ylabel="Bandwith MiB/sec", title=os.path.basename(src))
+        pplot.set(xlabel="Time", ylabel=type.get("title"), title=os.path.basename(src))
         plt.show()
 
 
@@ -36,10 +45,17 @@ def main():
                         help='Directory with fio logs')
     parser.add_argument('--pattern', '-p', dest='pattern', default="*.*.log", required=False,
                         help='Pattern for files')
-    args = parser.parse_args()
+    parser.add_argument('--perl-regexp', '-P', dest='perlpattern', default=None, required=False,
+                        help='Interpret  PATTERNS  as  Perl-compatible  regular  expressions  (PCREs).')
 
+    args = parser.parse_args()
     logp = LogPlot()
-    files = [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))]
+    if args.perlpattern:
+        pattern = re.compile(args.perlpattern, flags=0)
+        files = [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, '*')) if pattern.match(os.path.basename(srcfile))]
+    else:
+        files = [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))]
+    print(files)
     with multiprocessing.Pool(processes=len(files)) as pool:
         results = pool.map(logp.plot, files)
 
