@@ -6,14 +6,13 @@ import os
 import multiprocessing
 import datetime
 import pandas as pd
+from functools import partial
+from pathlib import Path
 import matplotlib.pyplot as plt
 
 class LogPlot(object):
-    def __init__(self):
-        self.seconds_in_ms = 1000
 
-
-    def plot(self, src):
+    def plot(self, src=None, dst=None, show=None, pformat=None):
         types = {'bw': 'Bandwith MiB/sec', 'lat': 'Latency in msecs', 'clat': ' Completion  latency in msecs',
                 'slat': 'Submission latency in msecs', 'iops': 'IO per second'}
 
@@ -32,9 +31,14 @@ class LogPlot(object):
             df = df.apply(lambda x: x/1024, axis=1)
         if 'lat' in type.get('name'):
             df = df.apply(lambda x: x/1000000, axis=1)
-        pplot = df.plot()
+        pplot = df.plot(figsize=(18, 9))
         pplot.set(xlabel="Time", ylabel=type.get("title"), title=os.path.basename(src))
-        plt.show()
+        if dst:
+            plt.savefig(os.path.join(dst, f'{Path(src).stem}.{pformat}'))
+        if show:
+            plt.show()
+
+
 
 
 
@@ -46,6 +50,12 @@ def main():
                         help='Pattern for files')
     parser.add_argument('--perl-regexp', '-P', dest='perlpattern', default=None, required=False,
                         help='Interpret  PATTERNS  as  Perl-compatible  regular  expressions  (PCREs).')
+    parser.add_argument('--savepath', '-S', dest='savepath', default=None, required=False,
+                        help='Save dir path for plots')
+    parser.add_argument('--format', '-f', dest='pformat', default='png', required=False,
+                        help='Save path for plots')
+    parser.add_argument('--show', dest='show', default=None, required=False, action='store_true',
+                        help='Show plots')
 
     args = parser.parse_args()
     logp = LogPlot()
@@ -55,8 +65,11 @@ def main():
     else:
         files = [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))]
     print(files)
-    with multiprocessing.Pool(processes=len(files)) as pool:
-        results = pool.map(logp.plot, files)
+    with multiprocessing.Pool() as pool:
+        f1 = partial(logp.plot, dst=args.savepath)
+        f2 = partial(f1, show=args.show)
+        f3 = partial(f2, pformat=args.pformat)
+        results = pool.map(f3, files)
 
 
 
