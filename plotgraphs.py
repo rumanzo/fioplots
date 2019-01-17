@@ -15,10 +15,9 @@ class LogPlot(object):
 
     def plot(self, src):
         types = {'bw': 'Bandwith MiB/sec', 'lat': 'Latency in msecs', 'clat': ' Completion  latency in msecs',
-                'slat': 'Submission latency in msecs'}
+                'slat': 'Submission latency in msecs', 'iops': 'IO per second'}
 
         for t in types.keys():
-            print(t)
             if re.match(r'.*'+t+r'\.\d+\.log', os.path.basename(src)):
                 type = {"name": t, "title": types[t]}
         with open(src, 'r') as f:
