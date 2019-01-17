@@ -41,8 +41,6 @@ def main():
     logp = LogPlot()
     files = [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))]
     with multiprocessing.Pool(processes=len(files)) as pool:
-        # func = partial(logp.mplogprepare, args.destdir)
-        # results = pool.map(func, [srcfile for srcfile in glob.glob(os.path.join(args.sourcedir, args.pattern))])
         results = pool.map(logp.plot, files)
 
 
