@@ -20,22 +20,22 @@ def datafromlog(src):
         for line in f:
             linelist = line.rstrip('\n').split(', ')
             datalog.append(
-                {'time': date + datetime.timedelta(milliseconds=int(linelist[0])), 'value': str(linelist[1])})
+                {'time': date + datetime.timedelta(milliseconds=int(linelist[0])), 'value': int(linelist[1])})
     return datalog, type
 
 def upload(src=None, args=None):
     datalog, type = datafromlog(src)
     logname = os.path.basename(src)
-    fiometric = [{'measurement': 'fio',
-                  'tags': {'logname': logname,
-                           'depth': int(logname.split('_')[2][1:]), 'bs': logname.split('_')[1], 'type': type,
-                           'testtype': logname.split('_')[0], 'storagetype': args.storagetype},
-                  'time': x["time"].strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-                  'fields': {'value': x['value']}} for x in datalog]
+    fiometric = [{"measurement": "fio",
+                  "tags": {"logname": logname,
+                           "depth": int(logname.split('_')[2][1:]), "bs": logname.split('_')[1], "type": type,
+                           "testtype": logname.split('_')[0], "storagetype": args.storagetype},
+                  "time": x["time"].strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+                  "fields": {"value": x["value"]}} for x in datalog]
     client = InfluxDBClient(host=args.influxdbhost, port=args.influxdbport, username=args.influxdbuser,
                             password=args.influxdbpassword, database=args.influxdb_db)
     # result = client.query('DROP SERIES FROM fio;')
-    result = client.write_points(fiometric, protocol='json')
+    result = client.write_points(fiometric)
     return result
 
 def dropseries(args):
