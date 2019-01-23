@@ -13,20 +13,7 @@ import matplotlib.pyplot as plt
 class LogPlot(object):
 
     def plot(self, src=None, dst=None, show=None, pformat=None):
-        types = {'bw': 'Bandwith MiB/sec', 'lat': 'Latency in msecs', 'clat': ' Completion  latency in msecs',
-                'slat': 'Submission latency in msecs', 'iops': 'IO per second'}
-
-        for t in types.keys():
-            if re.match(r'.*'+t+r'\.\d+\.log', os.path.basename(src)):
-                type = {"name": t, "title": types[t]}
-        with open(src, 'r') as f:
-            out = []
-            for line in f:
-                linelist = line.rstrip('\n').split(', ')
-                out.append({'Time': datetime.timedelta(milliseconds=int(linelist[0])), type.get("name"): int(linelist[1])})
-        df = pd.DataFrame(out)
-        df.Time = pd.to_datetime(df.Time).dt.time
-        df.set_index('Time', inplace=True)
+        df, type = self.createdataframe(src)
         if type.get('name') == 'bw':
             df = df.apply(lambda x: x/1024, axis=1)
         if 'lat' in type.get('name'):
@@ -37,6 +24,24 @@ class LogPlot(object):
             plt.savefig(os.path.join(dst, f'{Path(src).stem}.{pformat}'))
         if show:
             plt.show()
+
+    def createdataframe(self, src):
+        types = {'bw': 'Bandwith MiB/sec', 'lat': 'Latency in msecs', 'clat': ' Completion  latency in msecs',
+                 'slat': 'Submission latency in msecs', 'iops': 'IO per second'}
+
+        for t in types.keys():
+            if re.match(r'.*' + t + r'\.\d+\.log', os.path.basename(src)):
+                type = {"name": t, "title": types[t]}
+        with open(src, 'r') as f:
+            out = []
+            for line in f:
+                linelist = line.rstrip('\n').split(', ')
+                out.append(
+                    {'Time': datetime.timedelta(milliseconds=int(linelist[0])), type.get("name"): int(linelist[1])})
+        df = pd.DataFrame(out)
+        df.Time = pd.to_datetime(df.Time).dt.time
+        df.set_index('Time', inplace=True)
+        return df, type
 
 
 
@@ -69,7 +74,7 @@ def main():
         f1 = partial(logp.plot, dst=args.savepath)
         f2 = partial(f1, show=args.show)
         f3 = partial(f2, pformat=args.pformat)
-        results = pool.map(f3, files)
+        pool.map(f3, files)
 
 
 
